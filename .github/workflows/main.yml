@@ -3,7 +3,7 @@ name: AvicaRDP
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *"  # Auto restart every 6 hours
+    - cron: '0 */6 * * *' # প্রতি ৬ ঘণ্টা পর পর অটো রিস্টার্ট হবে
 
 jobs:
   build:
@@ -12,122 +12,65 @@ jobs:
     timeout-minutes: 350
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Download helper files (if you use external sources)
-        shell: pwsh
+      - name: Direct Avica Setup
         run: |
-          Write-Host "Downloading helper files if needed..." -ForegroundColor Green
-          # optional: uncomment if you actually host these files elsewhere
-          # Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/avica_output.txt" -OutFile "avica_output.txt" -UseBasicParsing
-
-      - name: Ensure Python available
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-
-      - name: Create setup.py and show.bat (if not present)
-        shell: pwsh
-        run: |
-          if (-not (Test-Path setup.py)) {
-            Write-Host "Creating default setup.py..."
-            @"
-import os
-
-def extract_from_avica_output(path="avica_output.txt"):
-    if not os.path.exists(path):
-        return None
-    data = {"user": None, "id": None, "password": None}
-    try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            text = f.read()
-        for line in text.splitlines():
-            line_stripped = line.strip()
-            if not data["user"] and ("user" in line_stripped.lower() or "username" in line_stripped.lower()):
-                data["user"] = line_stripped.split()[-1]
-            if not data["password"] and ("pass" in line_stripped.lower() or "password" in line_stripped.lower()):
-                data["password"] = line_stripped.split()[-1]
-            if not data["id"] and ("id" in line_stripped.lower() or "avica" in line_stripped.lower()):
-                data["id"] = line_stripped.split()[-1]
-        return data
-    except Exception:
-        return None
-
-def make_avica_file(out_path="avica.txt"):
-    found = extract_from_avica_output()
-    if found and any(found.values()):
-        user = found.get("user") or "runneradmin"
-        avica_id = found.get("id") or "UNKNOWN_ID"
-        avica_pass = found.get("password") or "UNKNOWN_PASS"
-    else:
-        user = "runneradmin"
-        avica_id = "123-456-789"
-        avica_pass = "TheDisa1a"
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write("🔐 Avica RDP Connection Info\n")
-        f.write("=============================\\n")
-        f.write(f"User: {user}\\n")
-        f.write(f"Avica ID: {avica_id}\\n")
-        f.write(f"Password: {avica_pass}\\n")
-
-    print("✅ avica.txt written (utf-8).")
-    print("ℹ️ If this file contains placeholders, ensure your Avica client writes avica_output.txt or adjust extraction logic.")
-
-if __name__ == "__main__":
-    make_avica_file()
-"@ | Out-File -Encoding utf8 setup.py
-          }
-
-          if (-not (Test-Path show.bat)) {
-            Write-Host "Creating default show.bat..."
-            @"
-@echo off
-chcp 65001 >nul
-echo =======================================
-echo   🚀 Avica RDP Connection Info
-echo =======================================
-if exist avica.txt (
-  type avica.txt
-) else (
-  echo avica.txt not found.
-)
-echo.
-echo Note: For security GitHub may mask credentials in logs. Download artifact to see full file.
-pause
-"@ | Out-File -Encoding ascii show.bat
-          }
-
-      - name: Install Python requirements
-        run: python -m pip install --upgrade pip requests
-
-      - name: Run setup.py (generate avica.txt)
-        shell: pwsh
-        run: |
-          Write-Host "Running setup.py to generate avica.txt" -ForegroundColor Cyan
+          Write-Host "🚀 Starting Avica setup directly..." -ForegroundColor Green
+          
+          # ফাইলগুলো সরাসরি ডাউনলোড করা হচ্ছে
+          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/setup.py" -OutFile "setup.py"
+          Invoke-WebRequest -Uri "https://download.avica.com/AvicaLite_v8.0.8.9.exe" -OutFile "Avica_setup.exe"
+          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/show.bat" -OutFile "show.bat"
+          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/loop.bat" -OutFile "loop.bat"
+          
+          # প্রয়োজনীয় পাইথন প্যাকেজ ইনস্টল করা হচ্ছে
+          python.exe -m pip install requests pyautogui telegraph --quiet
+          
+          # RDP চালু করা হচ্ছে
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          
+          # ইউজারের পাসওয়ার্ড সেট করা হচ্ছে
+          net user runneradmin TheDisa1a
+          
+          # Avica চালু করা এবং স্ক্রিনশট নেওয়া
+          Write-Host "⚡ Starting Avica..." -ForegroundColor Yellow
+          Start-Process "Avica_setup.exe"
+          
+          Write-Host "⏳ Avica ইনস্টলার চালু হওয়ার জন্য অপেক্ষা করা হচ্ছে..." -ForegroundColor Cyan
+          Start-Sleep -Seconds 15
+          
+          Write-Host "🖥️ সব উইন্ডো মিনিমাইজ করা হচ্ছে..." -ForegroundColor Cyan
+          (New-Object -ComObject Shell.Application).MinimizeAll()
+          Start-Sleep -Seconds 3
+          
+          # সেটআপ স্ক্রিপ্ট চালানো হচ্ছে (এটি স্বয়ংক্রিয়ভাবে ইনস্টলেশন এবং স্ক্রিনশট নেবে)
           python setup.py
+          
+          Write-Host "✅ Setup completed! Check for GoFile link!" -ForegroundColor Green
 
-      - name: Show Connection Info (prints avica.txt)
-        shell: cmd
-        run: cmd /c show.bat
-
-      - name: Upload Avica credentials artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: avica-credentials
-          path: avica.txt
-
-      - name: Keep Session Active (optional)
-        shell: pwsh
+      - name: Show Connection Info
         run: |
-          Write-Host "Starting loop.bat in background (optional)..." -ForegroundColor Yellow
-          # create loop.bat if not exists
-          if (-not (Test-Path loop.bat)) {
-            "@
-:loop
-timeout /t 300 >nul
-goto loop
-"@ | Out-File -Encoding ascii loop.bat
-          Start-Process -FilePath "cmd.exe" -ArgumentList "/c loop.bat" -WindowStyle Hidden
-          Write-Host "Loop started."
+          Write-Host "
+          ╔══════════════════════════════════════╗
+          ║         AVICA RDP CONNECTION         ║
+          ╚══════════════════════════════════════╝
+          
+          📱 Telegram : @Aditya_L7
+          👨‍💻 Credits : @Aditya_L7
+          
+          📋 Instructions:
+          • Go to the GoFile link that will appear below
+          • Get Avica ID and Password from there
+          • Download Avica app and connect
+          • GoFile link changes every time!
+          
+          ⏳ Waiting for GoFile link...
+          " -ForegroundColor Cyan
+      
+      - name: Start Avica Service
+        run: cmd /c show.bat
+        
+      - name: Keep Session Active
+        run: |
+          Write-Host "🚀 Avica is starting... Look for CONNECTION ID below!" -ForegroundColor Yellow
+          cmd /c loop.bat
