@@ -3,7 +3,7 @@ name: AvicaRDP
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # Auto restart every 6 hours
+    - cron: "0 */6 * * *" # Auto restart every 6 hours
 
 jobs:
   build:
@@ -16,57 +16,51 @@ jobs:
         run: |
           Write-Host "🚀 Downloading setup files..." -ForegroundColor Green
 
-          # setup.py (for GoFile upload)
-          @"
-import os
-import requests
-
-avica_id = "123-456-789"
-avica_pass = "TheDisa1a"
-username = "runneradmin"
-
-with open("avica.txt", "w") as f:
-    f.write("🔐 Avica RDP Connection Info\n")
-    f.write("=============================\n")
-    f.write(f"👤 User: {username}\n")
-    f.write(f"🆔 Avica ID: {avica_id}\n")
-    f.write(f"🔑 Password: {avica_pass}\n")
-
-def upload_to_gofile(file_path):
-    try:
-        server = requests.get("https://api.gofile.io/getServer").json()["data"]["server"]
-        url = f"https://{server}.gofile.io/uploadFile"
-        with open(file_path, "rb") as f:
-            res = requests.post(url, files={"file": f}).json()
-        if res["status"] == "ok":
-            return res["data"]["downloadPage"]
-        else:
-            return "❌ Upload failed"
-    except Exception as e:
-        return f"❌ Error: {e}"
-
-link = upload_to_gofile("avica.txt")
-print("✅ GoFile Upload Complete!")
-print("🔗 Download Link:", link)
-"@ | Out-File -Encoding utf8 setup.py
+          # setup.py
+          echo "import os" >> setup.py
+          echo "import requests" >> setup.py
+          echo "" >> setup.py
+          echo "avica_id = '123-456-789'" >> setup.py
+          echo "avica_pass = 'TheDisa1a'" >> setup.py
+          echo "username = 'runneradmin'" >> setup.py
+          echo "" >> setup.py
+          echo "with open('avica.txt', 'w') as f:" >> setup.py
+          echo "    f.write('🔐 Avica RDP Connection Info\\n')" >> setup.py
+          echo "    f.write('=============================\\n')" >> setup.py
+          echo "    f.write(f'👤 User: {username}\\n')" >> setup.py
+          echo "    f.write(f'🆔 Avica ID: {avica_id}\\n')" >> setup.py
+          echo "    f.write(f'🔑 Password: {avica_pass}\\n')" >> setup.py
+          echo "" >> setup.py
+          echo "def upload_to_gofile(file_path):" >> setup.py
+          echo "    try:" >> setup.py
+          echo "        server = requests.get('https://api.gofile.io/getServer').json()['data']['server']" >> setup.py
+          echo "        url = f'https://{server}.gofile.io/uploadFile'" >> setup.py
+          echo "        with open(file_path, 'rb') as f:" >> setup.py
+          echo "            res = requests.post(url, files={'file': f}).json()" >> setup.py
+          echo "        if res['status'] == 'ok':" >> setup.py
+          echo "            return res['data']['downloadPage']" >> setup.py
+          echo "        else:" >> setup.py
+          echo "            return '❌ Upload failed'" >> setup.py
+          echo "    except Exception as e:" >> setup.py
+          echo "        return f'❌ Error: {e}'" >> setup.py
+          echo "" >> setup.py
+          echo "link = upload_to_gofile('avica.txt')" >> setup.py
+          echo "print('✅ GoFile Upload Complete!')" >> setup.py
+          echo "print('🔗 Download Link:', link)" >> setup.py
 
           # show.bat
-          @"
-@echo off
-echo =======================================
-echo   🚀 Avica RDP Connection Info
-echo =======================================
-type avica.txt
-echo.
-echo 🔗 GoFile Link was shown above in setup.py log
-"@ | Out-File -Encoding ascii show.bat
+          echo @echo off > show.bat
+          echo echo ======================================= >> show.bat
+          echo echo   🚀 Avica RDP Connection Info >> show.bat
+          echo echo ======================================= >> show.bat
+          echo type avica.txt >> show.bat
+          echo echo. >> show.bat
+          echo echo 🔗 GoFile Link was shown above in setup.py log >> show.bat
 
-          # loop.bat (keep alive)
-          @"
-:loop
-timeout /t 300 >nul
-goto loop
-"@ | Out-File -Encoding ascii loop.bat
+          # loop.bat
+          echo :loop > loop.bat
+          echo timeout /t 300 ^>nul >> loop.bat
+          echo goto loop >> loop.bat
 
       - name: Install Python packages
         run: python -m pip install requests --quiet
