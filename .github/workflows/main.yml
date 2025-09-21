@@ -6,33 +6,40 @@ on:
 jobs:
   linux-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # Runner stays alive max 6 hours
+    timeout-minutes: 360 # 6 hours max runtime
     steps:
     - name: Setup tmate session
       run: |
+        # tmate এবং প্রয়োজনীয় প্যাকেজ ইনস্টল করা
         sudo apt-get update
-        sudo apt-get install -y tmate openssh-client
+        sudo apt-get install -y tmate
 
-        # Start tmate session in detached mode
+        # ব্যাকগ্রাউন্ডে tmate সেশন শুরু করা
         tmate -S /tmp/tmate.sock new-session -d
         tmate -S /tmp/tmate.sock wait tmate-ready
 
-        echo ""
-        echo "=========================================="
-        echo " 🚀 Your temporary VPS is ready!"
-        echo ""
-        echo "🔑 Full SSH Access:"
-        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
-        echo ""
-        echo "👀 Read-Only Access:"
-        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh_ro}'
-        echo ""
-        echo "🌐 Web Access (open in browser):"
-        tmate -S /tmp/tmate.sock display -p '#{tmate_web}'
-        echo ""
-        echo "⚠️  This VPS will auto-terminate after 6 hours or when you stop the workflow."
-        echo "=========================================="
-        echo ""
+        # SSH কানেকশন স্ট্রিং পাওয়া
+        SSH_CONNECT_STRING=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
 
-        # Keep session alive
-        sleep infinity
+        # user এবং host আলাদা করা
+        USER_HOST=$(echo $SSH_CONNECT_STRING | cut -d ' ' -f 2)
+        USER=$(echo $USER_HOST | cut -d '@' -f 1)
+        HOST=$(echo $USER_HOST | cut -d '@' -f 2)
+
+        # আপনার দেওয়া ফরম্যাটে কানেকশনের তথ্য দেখানো
+        echo "=========================================="
+        echo "✅ SSH Connection Details:"
+        echo "host: $HOST"
+        echo "user: $USER"
+        echo "pass: (Not required, uses SSH key)"
+        echo "port: 22"
+        echo ""
+        echo "To connect, use this full command:"
+        echo "$SSH_CONNECT_STRING"
+        echo "=========================================="
+        
+        # রানারটিকে ৬ ঘণ্টা পর্যন্ত সচল রাখার জন্য লুপ
+        while true; do
+          sleep 60
+          # আপনি চাইলে এখানে অন্য কোনো কমান্ড যোগ করতে পারেন
+        done
