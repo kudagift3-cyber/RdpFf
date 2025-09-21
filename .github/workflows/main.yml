@@ -6,38 +6,33 @@ on:
 jobs:
   linux-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max runtime
+    timeout-minutes: 360  # Runner stays alive max 6 hours
     steps:
-    - name: Install dependencies and setup SSH
+    - name: Setup tmate session
       run: |
-        # Install tmate for SSH access
         sudo apt-get update
         sudo apt-get install -y tmate openssh-client
-        
-        # Generate SSH keys
-        ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa <<<y >/dev/null 2>&1
-        
+
         # Start tmate session in detached mode
         tmate -S /tmp/tmate.sock new-session -d
         tmate -S /tmp/tmate.sock wait tmate-ready
-        
-        # Get SSH connection string
-        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}' > tmate_ssh.txt
-        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh_ro}' > tmate_ssh_ro.txt
-        
-        # Print connection info
-        echo "=========================================="
-        echo "Use this SSH command to connect to your VPS:"
-        cat tmate_ssh.txt
-        echo "=========================================="
-        
-        # Keep the session alive
-        sleep infinity
 
-    - name: Get SSH connection info
-      run: |
-        echo "SSH Connection Details:"
-        echo "========================"
-        cat tmate_ssh.txt
-        echo "========================"
-        echo "This VPS will remain active for 6 hours or until workflow is canceled."
+        echo ""
+        echo "=========================================="
+        echo " 🚀 Your temporary VPS is ready!"
+        echo ""
+        echo "🔑 Full SSH Access:"
+        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+        echo ""
+        echo "👀 Read-Only Access:"
+        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh_ro}'
+        echo ""
+        echo "🌐 Web Access (open in browser):"
+        tmate -S /tmp/tmate.sock display -p '#{tmate_web}'
+        echo ""
+        echo "⚠️  This VPS will auto-terminate after 6 hours or when you stop the workflow."
+        echo "=========================================="
+        echo ""
+
+        # Keep session alive
+        sleep infinity
