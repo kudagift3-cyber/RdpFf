@@ -3,7 +3,7 @@ name: AvicaRDP
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # প্রতি ৬ ঘণ্টা পর পর অটো রিস্টার্ট
+    - cron: '0 */6 * * *'
 
 jobs:
   build:
@@ -40,7 +40,6 @@ jobs:
             Write-Host "✅ RDP enabled successfully!" -ForegroundColor Green
           } catch {
             Write-Host "⚠️ RDP configuration warning: $($_.Exception.Message)" -ForegroundColor Yellow
-            # Continue anyway as this might not be critical
           }
           
           # ইউজারের পাসওয়ার্ড সেট করা
@@ -72,7 +71,7 @@ jobs:
 
       - name: Show Connection Info
         run: |
-          Write-Host "
+          $message = @"
           ╔══════════════════════════════════════╗
           ║         AVICA RDP CONNECTION         ║
           ╚══════════════════════════════════════╝
@@ -88,4 +87,32 @@ jobs:
           
           🔑 Default RDP Credentials:
           • Username: runneradmin
-          • Password:
+          • Password: TheDisa1a
+          
+          ⏳ Waiting for GoFile link...
+          "@
+          Write-Host $message -ForegroundColor Cyan
+      
+      - name: Start Avica Service
+        run: |
+          Write-Host "🚀 Starting Avica service..." -ForegroundColor Yellow
+          if (Test-Path "show.bat") {
+            cmd /c show.bat
+          } else {
+            Write-Host "❌ show.bat file not found!" -ForegroundColor Red
+          }
+        
+      - name: Keep Session Active
+        run: |
+          Write-Host "🔄 Keeping session active..." -ForegroundColor Yellow
+          Write-Host "🚀 Avica is starting... Look for CONNECTION ID below!" -ForegroundColor Yellow
+          if (Test-Path "loop.bat") {
+            cmd /c loop.bat
+          } else {
+            Write-Host "❌ loop.bat file not found!" -ForegroundColor Red
+            Write-Host "🔄 Using fallback session keeper..." -ForegroundColor Cyan
+            while ($true) {
+              Write-Host "⏰ Session active - $(Get-Date)" -ForegroundColor Green
+              Start-Sleep -Seconds 300
+            }
+          }
