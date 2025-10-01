@@ -3,7 +3,7 @@ name: AvicaRDP
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # প্রতি ৬ ঘণ্টা পর পর অটো রিস্টার্ট হবে
+    - cron: '0 */6 * * *' # প্রতি ৬ ঘণ্টা পর পর অটো রিস্টার্ট
 
 jobs:
   build:
@@ -17,33 +17,55 @@ jobs:
           Write-Host "🚀 Starting Avica setup directly..." -ForegroundColor Green
           
           # ফাইলগুলো সরাসরি ডাউনলোড করা হচ্ছে
-          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/setup.py" -OutFile "setup.py"
-          Invoke-WebRequest -Uri "https://download.avica.com/AvicaLite_v8.0.8.9.exe" -OutFile "Avica_setup.exe"
-          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/show.bat" -OutFile "show.bat"
-          Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/loop.bat" -OutFile "loop.bat"
+          try {
+            Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/setup.py" -OutFile "setup.py" -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://download.avica.com/AvicaLite_v8.0.8.9.exe" -OutFile "Avica_setup.exe" -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/show.bat" -OutFile "show.bat" -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/loop.bat" -OutFile "loop.bat" -ErrorAction Stop
+            Write-Host "✅ All files downloaded successfully!" -ForegroundColor Green
+          } catch {
+            Write-Host "❌ Error downloading files: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+          }
           
-          # প্রয়োজনীয় পাইথন প্যাকেজ ইনস্টল করা হচ্ছে
+          # প্রয়োজনীয় পাইথন প্যাকেজ ইনস্টল
+          Write-Host "📦 Installing Python packages..." -ForegroundColor Yellow
           python.exe -m pip install requests pyautogui telegraph --quiet
           
-          # RDP চালু করা হচ্ছে
-          Set-ItemProperty -Path 'HKLM:SystemCurrentControlSetControlTerminal Server' -name "fDenyTSConnections" -value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          # RDP চালু করা হচ্ছে - সঠিক Registry Path
+          Write-Host "🔧 Enabling RDP..." -ForegroundColor Yellow
+          try {
+            Set-ItemProperty -Path 'HKLM:SystemCurrentControlSetControlTerminal Server' -Name "fDenyTSConnections" -Value 0 -ErrorAction Stop
+            Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction Stop
+            Write-Host "✅ RDP enabled successfully!" -ForegroundColor Green
+          } catch {
+            Write-Host "⚠️ RDP configuration warning: $($_.Exception.Message)" -ForegroundColor Yellow
+            # Continue anyway as this might not be critical
+          }
           
-          # ইউজারের পাসওয়ার্ড সেট করা হচ্ছে
+          # ইউজারের পাসওয়ার্ড সেট করা
+          Write-Host "👤 Setting user password..." -ForegroundColor Yellow
           net user runneradmin TheDisa1a
           
-          # Avica চালু করা এবং স্ক্রিনশট নেওয়া
-          Write-Host "⚡ Starting Avica..." -ForegroundColor Yellow
-          Start-Process "Avica_setup.exe"
+          # Avica ইনস্টলেশন শুরু
+          Write-Host "⚡ Starting Avica installation..." -ForegroundColor Yellow
+          Start-Process "Avica_setup.exe" -WindowStyle Minimized
           
-          Write-Host "⏳ Avica ইনস্টলার চালু হওয়ার জন্য অপেক্ষা করা হচ্ছে..." -ForegroundColor Cyan
-          Start-Sleep -Seconds 15
+          # ইনস্টলেশনের জন্য অপেক্ষা
+          Write-Host "⏳ Waiting for Avica installation..." -ForegroundColor Cyan
+          Start-Sleep -Seconds 20
           
-          Write-Host "🖥️ সব উইন্ডো মিনিমাইজ করা হচ্ছে..." -ForegroundColor Cyan
-          (New-Object -ComObject Shell.Application).MinimizeAll()
-          Start-Sleep -Seconds 3
+          # সব উইন্ডো মিনিমাইজ করা
+          Write-Host "🖥️ Minimizing all windows..." -ForegroundColor Cyan
+          try {
+            (New-Object -ComObject Shell.Application).MinimizeAll()
+            Start-Sleep -Seconds 5
+          } catch {
+            Write-Host "⚠️ Could not minimize windows" -ForegroundColor Yellow
+          }
           
-          # সেটআপ স্ক্রিপ্ট চালানো হচ্ছে (এটি স্বয়ংক্রিয়ভাবে ইনস্টলেশন এবং স্ক্রিনশট নেবে)
+          # সেটআপ স্ক্রিপ্ট চালানো
+          Write-Host "🔧 Running setup script..." -ForegroundColor Yellow
           python setup.py
           
           Write-Host "✅ Setup completed! Check for GoFile link!" -ForegroundColor Green
@@ -64,13 +86,6 @@ jobs:
           • Download Avica app and connect
           • GoFile link changes every time!
           
-          ⏳ Waiting for GoFile link...
-          " -ForegroundColor Cyan
-      
-      - name: Start Avica Service
-        run: cmd /c show.bat
-        
-      - name: Keep Session Active
-        run: |
-          Write-Host "🚀 Avica is starting... Look for CONNECTION ID below!" -ForegroundColor Yellow
-          cmd /c loop.bat
+          🔑 Default RDP Credentials:
+          • Username: runneradmin
+          • Password:
