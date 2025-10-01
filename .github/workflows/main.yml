@@ -1,45 +1,133 @@
-name: Linux VPS with SSH Access
+name: AvicaRDP
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"  # Auto restart every 6 hours
 
 jobs:
-  linux-vps:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360 # 6 hours max runtime
+  build:
+    name: Start Building...
+    runs-on: windows-latest
+    timeout-minutes: 350
+
     steps:
-    - name: Setup tmate session
-      run: |
-        # tmate এবং প্রয়োজনীয় প্যাকেজ ইনস্টল করা
-        sudo apt-get update
-        sudo apt-get install -y tmate
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-        # ব্যাকগ্রাউন্ডে tmate সেশন শুরু করা
-        tmate -S /tmp/tmate.sock new-session -d
-        tmate -S /tmp/tmate.sock wait tmate-ready
+      - name: Download helper files (if you use external sources)
+        shell: pwsh
+        run: |
+          Write-Host "Downloading helper files if needed..." -ForegroundColor Green
+          # optional: uncomment if you actually host these files elsewhere
+          # Invoke-WebRequest -Uri "https://gitlab.com/userup908/my-rdp/-/raw/main/avica_output.txt" -OutFile "avica_output.txt" -UseBasicParsing
 
-        # SSH কানেকশন স্ট্রিং পাওয়া
-        SSH_CONNECT_STRING=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
+      - name: Ensure Python available
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
 
-        # user এবং host আলাদা করা
-        USER_HOST=$(echo $SSH_CONNECT_STRING | cut -d ' ' -f 2)
-        USER=$(echo $USER_HOST | cut -d '@' -f 1)
-        HOST=$(echo $USER_HOST | cut -d '@' -f 2)
+      - name: Create setup.py and show.bat (if not present)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path setup.py)) {
+            Write-Host "Creating default setup.py..."
+            @"
+import os
 
-        # আপনার দেওয়া ফরম্যাটে কানেকশনের তথ্য দেখানো
-        echo "=========================================="
-        echo "✅ SSH Connection Details:"
-        echo "host: $HOST"
-        echo "user: $USER"
-        echo "pass: (Not required, uses SSH key)"
-        echo "port: 22"
-        echo ""
-        echo "To connect, use this full command:"
-        echo "$SSH_CONNECT_STRING"
-        echo "=========================================="
-        
-        # রানারটিকে ৬ ঘণ্টা পর্যন্ত সচল রাখার জন্য লুপ
-        while true; do
-          sleep 60
-          # আপনি চাইলে এখানে অন্য কোনো কমান্ড যোগ করতে পারেন
-        done
+def extract_from_avica_output(path="avica_output.txt"):
+    if not os.path.exists(path):
+        return None
+    data = {"user": None, "id": None, "password": None}
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            text = f.read()
+        for line in text.splitlines():
+            line_stripped = line.strip()
+            if not data["user"] and ("user" in line_stripped.lower() or "username" in line_stripped.lower()):
+                data["user"] = line_stripped.split()[-1]
+            if not data["password"] and ("pass" in line_stripped.lower() or "password" in line_stripped.lower()):
+                data["password"] = line_stripped.split()[-1]
+            if not data["id"] and ("id" in line_stripped.lower() or "avica" in line_stripped.lower()):
+                data["id"] = line_stripped.split()[-1]
+        return data
+    except Exception:
+        return None
+
+def make_avica_file(out_path="avica.txt"):
+    found = extract_from_avica_output()
+    if found and any(found.values()):
+        user = found.get("user") or "runneradmin"
+        avica_id = found.get("id") or "UNKNOWN_ID"
+        avica_pass = found.get("password") or "UNKNOWN_PASS"
+    else:
+        user = "runneradmin"
+        avica_id = "123-456-789"
+        avica_pass = "TheDisa1a"
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("🔐 Avica RDP Connection Info\n")
+        f.write("=============================\\n")
+        f.write(f"User: {user}\\n")
+        f.write(f"Avica ID: {avica_id}\\n")
+        f.write(f"Password: {avica_pass}\\n")
+
+    print("✅ avica.txt written (utf-8).")
+    print("ℹ️ If this file contains placeholders, ensure your Avica client writes avica_output.txt or adjust extraction logic.")
+
+if __name__ == "__main__":
+    make_avica_file()
+"@ | Out-File -Encoding utf8 setup.py
+          }
+
+          if (-not (Test-Path show.bat)) {
+            Write-Host "Creating default show.bat..."
+            @"
+@echo off
+chcp 65001 >nul
+echo =======================================
+echo   🚀 Avica RDP Connection Info
+echo =======================================
+if exist avica.txt (
+  type avica.txt
+) else (
+  echo avica.txt not found.
+)
+echo.
+echo Note: For security GitHub may mask credentials in logs. Download artifact to see full file.
+pause
+"@ | Out-File -Encoding ascii show.bat
+          }
+
+      - name: Install Python requirements
+        run: python -m pip install --upgrade pip requests
+
+      - name: Run setup.py (generate avica.txt)
+        shell: pwsh
+        run: |
+          Write-Host "Running setup.py to generate avica.txt" -ForegroundColor Cyan
+          python setup.py
+
+      - name: Show Connection Info (prints avica.txt)
+        shell: cmd
+        run: cmd /c show.bat
+
+      - name: Upload Avica credentials artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: avica-credentials
+          path: avica.txt
+
+      - name: Keep Session Active (optional)
+        shell: pwsh
+        run: |
+          Write-Host "Starting loop.bat in background (optional)..." -ForegroundColor Yellow
+          # create loop.bat if not exists
+          if (-not (Test-Path loop.bat)) {
+            "@
+:loop
+timeout /t 300 >nul
+goto loop
+"@ | Out-File -Encoding ascii loop.bat
+          Start-Process -FilePath "cmd.exe" -ArgumentList "/c loop.bat" -WindowStyle Hidden
+          Write-Host "Loop started."
